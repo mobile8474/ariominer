@@ -32,10 +32,6 @@ set(SOURCE_HASHER hash/hasher.cpp hash/hasher.h hash/argon2/argon2.cpp hash/argo
         hash/argon2/blake2/blake2b-load-sse41.h hash/argon2/blake2/blake2b-load-sse2.h hash/argon2/blake2/blake2-config.h
         hash/argon2/argon2profile_4_4_16384.c hash/argon2/argon2profile_1_1_524288.c)
 set(SOURCE_CPU_HASHER hash/cpu/cpu_hasher.cpp hash/cpu/cpu_hasher.h)
-set(SOURCE_OPENCL_HASHER hash/gpu/opencl/opencl_hasher.cpp hash/gpu/opencl/opencl_hasher.h
-        hash/gpu/opencl/opencl_kernel.cpp hash/gpu/opencl/opencl_kernel.h)
-set(SOURCE_CUDA_HASHER hash/gpu/cuda/cuda_hasher.cpp hash/gpu/cuda/cuda_hasher.h
-        hash/gpu/cuda/cuda_kernel.cu)
 set(SOURCE_AMDGCN_HASHER hash/gpu/amdgcn/amdgcn_hasher.cpp hash/gpu/amdgcn/amdgcn_hasher.h
         hash/gpu/amdgcn/amdgcn_kernel.cpp hash/gpu/amdgcn/amdgcn_kernel.h)
 set(ARGON2_FILL_BLOCKS_SRC
@@ -85,62 +81,6 @@ set_target_properties(cpu_hasher
         )
 target_link_libraries(cpu_hasher hasher cpu_features)
 add_dependencies(ariominer cpu_hasher)
-
-if(NOT WITHOUT_CUDA)
-    add_definitions(-DWITH_CUDA)
-    if(NOT WIN32)
-        add_definitions(-DPARALLEL_CUDA)
-    endif()
-    find_package(CUDA REQUIRED)
-    set(
-            CUDA_NVCC_FLAGS
-            ${CUDA_NVCC_FLAGS};
-            -O3 -arch=compute_35 -std=c++11
-    )
-    cuda_add_library(cuda_hasher MODULE ${SOURCE_CUDA_HASHER})
-    set_target_properties(cuda_hasher
-            PROPERTIES
-            PREFIX ""
-            SUFFIX ".hsh"
-            LIBRARY_OUTPUT_DIRECTORY modules
-            )
-    target_link_libraries(cuda_hasher hasher)
-    add_dependencies(ariominer cuda_hasher)
-endif()
-
-if(NOT WITHOUT_OPENCL)
-    add_definitions(-DWITH_OPENCL)
-    find_package(OpenCL REQUIRED)
-    include_directories(${OpenCL_INCLUDE_DIR})
-    add_library(opencl_hasher MODULE ${SOURCE_OPENCL_HASHER})
-    set_target_properties(opencl_hasher
-            PROPERTIES
-            PREFIX ""
-            SUFFIX ".hsh"
-            LIBRARY_OUTPUT_DIRECTORY modules
-            )
-    target_link_libraries(opencl_hasher hasher ${OpenCL_LIBRARY})
-    add_dependencies(ariominer opencl_hasher)
-
-    if(NOT WITHOUT_AMDGCN)
-        add_definitions(-DWITH_AMDGCN)
-        list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/hash/gpu/amdgcn/CLRX/cmake")
-        add_subdirectory("hash/gpu/amdgcn/CLRX")
-        include_directories("hash/gpu/amdgcn/CLRX")
-        include_directories("${PROJECT_BINARY_DIR}/hash/gpu/amdgcn/CLRX/")
-
-        add_library(amdgcn_hasher MODULE ${SOURCE_AMDGCN_HASHER})
-        set_target_properties(amdgcn_hasher
-                PROPERTIES
-                PREFIX ""
-                SUFFIX ".hsh"
-                LIBRARY_OUTPUT_DIRECTORY modules
-                )
-        target_link_libraries(amdgcn_hasher hasher CLRXCLHelperStatic CLRXAmdAsmStatic
-                CLRXAmdBinStatic CLRXUtilsStatic ${OpenCL_LIBRARY})
-        add_dependencies(ariominer amdgcn_hasher)
-    endif()
-endif()
 
 target_link_libraries(ariominer common hasher)
 if(WIN32)
